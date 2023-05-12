@@ -1,4 +1,3 @@
-//COmmand to run: g++ -c doodlejump.cpp && g++ doodlejump.o -o sfml-app -lsfml-graphics -lsfml-window -lsfml-system && ./sfml-app
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <cmath>
@@ -34,8 +33,15 @@ int main()
 {
     srand(time(0));
 
+    Clock clock;
+    Time shakeStart = clock.getElapsedTime();
+    int magnitude = 10;
+
     RenderWindow app(VideoMode(600,600),"Doodle Game!!");
     app.setFramerateLimit(60);
+    Vector2f campos(300,300);
+    Vector2f camCoverage(600,600);
+    View cam(campos,camCoverage);
 
     if(!font.loadFromFile("OpenSans-Light.ttf"))
         std::cerr<<"Failed to load Fonts!"<<std::endl;
@@ -61,6 +67,12 @@ int main()
     float grappleSpeed = 0;
     float grappleAcc = 0;
 
+    Texture tBackground;
+    tBackground.loadFromFile("background.jpg");
+    Sprite sBackground;
+    sBackground.setTexture(tBackground);
+    //sBackground.setOrigin(tBackground.getSize().x/2,tBackground.getSize().y/2);
+
     while(app.isOpen()){
         mouse = Mouse::getPosition(app);
         Event e;
@@ -77,25 +89,39 @@ int main()
                     grappleSpeed = 12;
                     grappleAcc = 5;
                     (mouse.x > playerpos.x)? g=1:g=-1;
+                    magnitude = 1;
+                    shakeStart = clock.getElapsedTime();
                 }
             }
         }
-        if(Keyboard::isKeyPressed(Keyboard::Left));
+        if(Keyboard::isKeyPressed(Keyboard::Space)){
+            //CAM SHAKE
+            shakeStart = clock.getElapsedTime();
+        }
         if(Keyboard::isKeyPressed(Keyboard::Right));
         if(Keyboard::isKeyPressed(Keyboard::Q))app.close();
-       
+
+
+        if((clock.getElapsedTime()-shakeStart) <= milliseconds(70)){
+            cam.setCenter(campos.x+magnitude*((float)rand()/RAND_MAX),campos.y+magnitude*((float)rand()/RAND_MAX));
+            magnitude *= 0.5;
+        }
+        else
+            cam.setCenter(campos);
 
         float angle = (atan((mouse.y-playerpos.y)/(mouse.x-playerpos.x)));
         (mouse.x > playerpos.x)? t=1:t=-1;
         hookpos.x = playerpos.x+t*(player.getRadius()+hook.getRadius()+1)*cos(angle);
         hookpos.y = playerpos.y+t*(player.getRadius()+hook.getRadius()+1)*sin(angle);
-        
+
         if(grapple){
             Vector2f a(grapplepos.x-playerpos.x,grapplepos.y-playerpos.y);
             Vector2f b(playerpos.x-initplayerpos.x,playerpos.y-initplayerpos.y);
             if(dot(a,b)<0){
                 playerpos = grapplepos;
                 grapple=false;
+                magnitude = 10;
+                shakeStart = clock.getElapsedTime();
             }
             else{
                 hookpos.x = grapplepos.x;
@@ -114,9 +140,10 @@ int main()
             sf::Vertex(sf::Vector2f(playerpos.x, playerpos.y)),
             sf::Vertex(sf::Vector2f(hookpos.x, hookpos.y))
         };
-
+        app.setView(cam);
         app.clear();
         //Start Drawing here
+        app.draw(sBackground);
         if(grapple)app.draw(line, 5, Lines);
         app.draw(player);
         app.draw(hook);
@@ -125,4 +152,5 @@ int main()
         app.display();
     }
     return 0;
-}
+}     
+        
