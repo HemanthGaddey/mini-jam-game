@@ -7,12 +7,12 @@
 
 void Portal::draw(sf::RenderWindow& app)
 {
-    sf::Vector2f offset = sf::Vector2f(size * 0.5 * std::cos(angle), size * 0.5f * std::sin(angle));
-    sf::Vertex line[] ={
-        sf::Vertex(position + offset),
-        sf::Vertex(position + offset)
-    };
-    app.draw(line, 2, sf::Lines);
+    /* sf::Vector2f offset = sf::Vector2f(size * 0.5 * std::cos(angle), size * 0.5f * std::sin(angle)); */
+    /* sf::Vertex line[] ={ */
+    /*     sf::Vertex(position + offset), */
+    /*     sf::Vertex(position + offset) */
+    /* }; */
+    /* app.draw(line, 2, sf::Lines); */
 
     sPortal.setPosition(position);
     sPortal.setRotation(angle);
@@ -23,7 +23,9 @@ void Portal::draw(sf::RenderWindow& app)
 Portal::Portal(sf::Vector2f _position, sf::Color _color, float _angle, float _size)
 : position(_position), portalColor(_color), angle(_angle), size(_size)
 {
-
+    a = tan(angle);
+    b = -1;
+    c = position.y - a * position.x;
 }
 
 void Portal::pair(Portal _otherSide)
