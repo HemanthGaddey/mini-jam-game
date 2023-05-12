@@ -82,15 +82,17 @@ int main()
             }
             else if(e.type == Event::MouseButtonReleased){
                 if(e.mouseButton.button == Mouse::Left){
-                    grapple = true;
-                    grapplepos.x = mouse.x; grapplepos.y = mouse.y;
-                    initplayerpos = playerpos;
-                    grappleAngle = atan((mouse.y-playerpos.y)/(mouse.x-playerpos.x));
-                    grappleSpeed = 12;
-                    grappleAcc = 5;
-                    (mouse.x > playerpos.x)? g=1:g=-1;
-                    magnitude = 1;
-                    shakeStart = clock.getElapsedTime();
+                    if(dist(Vector2f(mouse.x,mouse.y),playerpos) > player.getRadius()){
+                        grapple = true;
+                        grapplepos.x = mouse.x; grapplepos.y = mouse.y;
+                        initplayerpos = playerpos;
+                        grappleAngle = atan((mouse.y-playerpos.y)/(mouse.x-playerpos.x));
+                        grappleSpeed = 12;
+                        grappleAcc = 5;
+                        (mouse.x > playerpos.x)? g=1:g=-1;
+                        magnitude = 1;
+                        shakeStart = clock.getElapsedTime();
+                    }
                 }
             }
         }
