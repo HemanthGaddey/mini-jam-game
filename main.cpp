@@ -96,6 +96,7 @@ int main()
         }
         if(Keyboard::isKeyPressed(Keyboard::Space)){
             //CAM SHAKE
+            magnitude = 10;
             shakeStart = clock.getElapsedTime();
         }
         if(Keyboard::isKeyPressed(Keyboard::Right));
