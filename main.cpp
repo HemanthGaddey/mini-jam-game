@@ -20,6 +20,35 @@ float dot(Vector2f a, Vector2f b){
     return a.x*b.x + a.y*b.y;
 }
 
+sf::Vector2f movePlayer(const sf::Vector2f& initPos,
+        const sf::Vector2f& movement,
+        const std::vector<Portal>& portals) 
+{
+    sf::Vector2f finalPos = initPos + movement;
+    float a1, b1, c1;
+    a1 = movement.y / movement.x;
+    b1 = -1;
+    c1 = initPos.y - (a1 * initPos.x);
+    for (auto it : portals)
+    {
+        // Check if player path intersects with portal
+        sf::Vector2f pointIntersection(((b1 * it.c - c1 * it.b) / (a1 * it.b - b1 * it.a)),
+                ((c1 * it.a - a1 * it.c) / (a1 * it.b - b1 * it.a)));
+        if(  (initPos.x < pointIntersection.x && finalPos.x < pointIntersection.x)
+           ||(initPos.x > pointIntersection.x && finalPos.x > pointIntersection.x)
+           ||(initPos.y < pointIntersection.y && finalPos.y < pointIntersection.y)
+           ||(initPos.y > pointIntersection.y && finalPos.y > pointIntersection.y)
+        )
+            continue;
+        if (dist(it.position, pointIntersection) > it.size * 0.5)
+            continue;
+
+        // If it does, teleport player (We also need to consider orientation of portal)
+        return finalPos - it.position + it.otherSide->position;
+    }
+    return finalPos;
+}
+
 void debug(RenderWindow* app, Vector2f a, Vector2f b){
     Text text;
     text.setFont(font);
@@ -83,14 +112,20 @@ int main()
     sBackground.setTexture(tBackground);
     //sBackground.setOrigin(tBackground.getSize().x/2,tBackground.getSize().y/2);
 
+    // Portal sprite needs to be asymmetric for player to get idea of direction
     Portal::tPortal.loadFromFile("portal.png");
     Portal::sPortal.setTexture(Portal::tPortal);
     Portal::sPortal.setOrigin(sf::Vector2f(1850, 475));
     Portal::sPortal.setScale(sf::Vector2f(0.027, 0.027));
 
-    Portal portal1(sf::Vector2f(500, 300), sf::Color::Red, 80, 300.0f);
+    std::vector<Portal> portals;
+    portals.push_back(Portal(sf::Vector2f(500, 300), sf::Color::Red, 80, 300.0f));
+    portals.push_back(Portal(sf::Vector2f(100, 300), sf::Color::Red, 100, 300.0f));
+    portals[0].pair(portals[1]);
+    portals[1].pair(portals[0]);
 
     while(app.isOpen()){
+        // Event handling
         mouse = Mouse::getPosition(app);
         Event e;
         while(app.pollEvent(e)){
@@ -129,6 +164,7 @@ int main()
         else
             cam.setCenter(camPos);
 
+        // Deciding position of grapple
         float angle = (atan((mouse.y-playerpos.y)/(mouse.x-playerpos.x)));
         (mouse.x > playerpos.x)? t=1:t=-1;
         hookpos.x = playerpos.x+t*(player.getRadius()+hook.getRadius()+1)*cos(angle);
@@ -147,8 +183,10 @@ int main()
                 hookpos.x = grapplepos.x;
                 hookpos.y = grapplepos.y;
 
-                playerpos.x += g*grappleSpeed*cos(grappleAngle);
-                playerpos.y += g*grappleSpeed*sin(grappleAngle);
+                // This is the only place where player is b
+                playerpos = movePlayer(playerpos,
+                        sf::Vector2f(g*grappleSpeed*cos(grappleAngle), g*grappleSpeed*sin(grappleAngle)),
+                        portals);
 
                 grappleSpeed += grappleAcc;
             }
@@ -171,7 +209,8 @@ int main()
         //debug(&app,grapplepos,initplayerpos);
 
         // Drawing Portals
-        portal1.draw(app);
+        for(auto it : portals)
+            it.draw(app);
 
         //Stop Drawing here
         app.display();
