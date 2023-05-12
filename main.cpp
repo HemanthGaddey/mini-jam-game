@@ -4,16 +4,22 @@
 #include <time.h>
 #include <string>
 #include <sstream>
+
+#include "portal.hpp"
 using namespace sf;
 
 Font font;
+
 struct point{int x,y;};
+
 float dist(Vector2f a,Vector2f b){
     return sqrt(pow((a.x-b.x),2)+pow((a.y-b.y),2));
 }
+
 float dot(Vector2f a, Vector2f b){
     return a.x*b.x + a.y*b.y;
 }
+
 void debug(RenderWindow* app, Vector2f a, Vector2f b){
     Text text;
     text.setFont(font);
@@ -29,6 +35,10 @@ void debug(RenderWindow* app, Vector2f a, Vector2f b){
     text.setPosition(100,200);
     (*app).draw(text);
 }
+
+sf::Texture Portal::tPortal;
+sf::Sprite Portal::sPortal;
+
 int main()
 {
     srand(time(0));
@@ -39,9 +49,9 @@ int main()
 
     RenderWindow app(VideoMode(600,600),"Doodle Game!!");
     app.setFramerateLimit(60);
-    Vector2f campos(300,300);
+    Vector2f camPos(300,300);
     Vector2f camCoverage(600,600);
-    View cam(campos,camCoverage);
+    View cam(camPos,camCoverage);
 
     if(!font.loadFromFile("OpenSans-Light.ttf"))
         std::cerr<<"Failed to load Fonts!"<<std::endl;
@@ -72,6 +82,13 @@ int main()
     Sprite sBackground;
     sBackground.setTexture(tBackground);
     //sBackground.setOrigin(tBackground.getSize().x/2,tBackground.getSize().y/2);
+
+    Portal::tPortal.loadFromFile("portal.png");
+    Portal::sPortal.setTexture(Portal::tPortal);
+    Portal::sPortal.setOrigin(sf::Vector2f(1850, 475));
+    Portal::sPortal.setScale(sf::Vector2f(0.027, 0.027));
+
+    Portal portal1(sf::Vector2f(500, 300), sf::Color::Red, 80, 300.0f);
 
     while(app.isOpen()){
         mouse = Mouse::getPosition(app);
@@ -106,11 +123,11 @@ int main()
 
 
         if((clock.getElapsedTime()-shakeStart) <= milliseconds(70)){
-            cam.setCenter(campos.x+magnitude*((float)rand()/RAND_MAX),campos.y+magnitude*((float)rand()/RAND_MAX));
+            cam.setCenter(camPos.x+magnitude*((float)rand()/RAND_MAX),camPos.y+magnitude*((float)rand()/RAND_MAX));
             magnitude *= 0.5;
         }
         else
-            cam.setCenter(campos);
+            cam.setCenter(camPos);
 
         float angle = (atan((mouse.y-playerpos.y)/(mouse.x-playerpos.x)));
         (mouse.x > playerpos.x)? t=1:t=-1;
@@ -145,15 +162,19 @@ int main()
         };
         app.setView(cam);
         app.clear();
+
         //Start Drawing here
         app.draw(sBackground);
         if(grapple)app.draw(line, 5, Lines);
         app.draw(player);
         app.draw(hook);
         //debug(&app,grapplepos,initplayerpos);
+
+        // Drawing Portals
+        portal1.draw(app);
+
         //Stop Drawing here
         app.display();
     }
     return 0;
-}     
-        
+}
