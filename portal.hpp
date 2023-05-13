@@ -24,7 +24,8 @@ class Portal
     public:
         void draw(sf::RenderWindow& app);
         Portal(sf::Vector2f _position, sf::Color _color, float _angle = 0, float _size = 100.0f);
-        void pair(Portal otherSide);
+        void pair(Portal* otherSide);
+        sf::Vector2f transform(sf::Vector2f initPos);
 };
 
 #endif
