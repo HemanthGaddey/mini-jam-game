@@ -20,20 +20,42 @@ float dot(Vector2f a, Vector2f b){
     return a.x*b.x + a.y*b.y;
 }
 
+
+sf::Vector2f rotateVector(const sf::Vector2f& vector, float angle)
+{
+    // This function will rotate input vector by angle in clockwise direction
+    float theta = angle * (3.14159f / 180.0f); // Convert degrees to radians
+
+    float rotatedX = vector.x * std::cos(theta) + vector.y * std::sin(theta);
+    float rotatedY = -1 * vector.x * std::sin(theta) + vector.y * std::cos(theta);
+
+    return sf::Vector2f(rotatedX, rotatedY);
+}
+
 sf::Vector2f movePlayer(const sf::Vector2f& initPos,
         const sf::Vector2f& movement,
-        const std::vector<Portal>& portals) 
+        const std::vector<Portal>& portals,
+        sf::Vector2f *grapplePos = NULL)
 {
     sf::Vector2f finalPos = initPos + movement;
     float a1, b1, c1;
     a1 = movement.y / movement.x;
     b1 = -1;
     c1 = initPos.y - (a1 * initPos.x);
+    float angle = std::atan(a1);
     for (auto it : portals)
     {
         // Check if player path intersects with portal
+
+        // Reject if lines are parallel
+        if(angle <= it.angle + 0.05 && angle >= it.angle - 0.05)
+            continue;
+
+        // Get point of intersection
         sf::Vector2f pointIntersection(((b1 * it.c - c1 * it.b) / (a1 * it.b - b1 * it.a)),
                 ((c1 * it.a - a1 * it.c) / (a1 * it.b - b1 * it.a)));
+
+        // Check if point of intersection lies on the line segments
         if(  (initPos.x < pointIntersection.x && finalPos.x < pointIntersection.x)
            ||(initPos.x > pointIntersection.x && finalPos.x > pointIntersection.x)
            ||(initPos.y < pointIntersection.y && finalPos.y < pointIntersection.y)
@@ -43,8 +65,10 @@ sf::Vector2f movePlayer(const sf::Vector2f& initPos,
         if (dist(it.position, pointIntersection) > it.size * 0.5)
             continue;
 
-        // If it does, teleport player (We also need to consider orientation of portal)
-        return finalPos - it.position + it.otherSide->position;
+        // If it does, teleport player
+        if (grapplePos != NULL)
+            *grapplePos = it.transform(*grapplePos);
+        return it.transform(finalPos);
     }
     return finalPos;
 }
@@ -87,7 +111,7 @@ int main()
     Vector2i mouse;
 
     Vector2f playerpos(300,300);
-    CircleShape player(50);
+    CircleShape player(25);
     player.setPointCount(300);
     player.setFillColor(Color::Cyan);
 
@@ -119,10 +143,14 @@ int main()
     Portal::sPortal.setScale(sf::Vector2f(0.027, 0.027));
 
     std::vector<Portal> portals;
-    portals.push_back(Portal(sf::Vector2f(500, 300), sf::Color::Red, 80, 300.0f));
-    portals.push_back(Portal(sf::Vector2f(100, 300), sf::Color::Red, 100, 300.0f));
-    portals[0].pair(portals[1]);
-    portals[1].pair(portals[0]);
+    portals.push_back(Portal(sf::Vector2f(250, 100), sf::Color::Red,   0, 300.0f));
+    portals.push_back(Portal(sf::Vector2f(100, 350), sf::Color::Red, -90, 300.0f));
+    portals.push_back(Portal(sf::Vector2f(350, 500), sf::Color::Red, 180, 300.0f));
+    portals.push_back(Portal(sf::Vector2f(500, 250), sf::Color::Red,  90, 300.0f));
+    portals[0].pair(&portals[3]);
+    portals[1].pair(&portals[2]);
+    portals[2].pair(&portals[1]);
+    portals[3].pair(&portals[0]);
 
     while(app.isOpen()){
         // Event handling
@@ -184,9 +212,11 @@ int main()
                 hookpos.y = grapplepos.y;
 
                 // This is the only place where player is b
+                sf::Vector2f playerMovement(g*grappleSpeed*cos(grappleAngle), g*grappleSpeed*sin(grappleAngle));
                 playerpos = movePlayer(playerpos,
-                        sf::Vector2f(g*grappleSpeed*cos(grappleAngle), g*grappleSpeed*sin(grappleAngle)),
-                        portals);
+                        playerMovement,
+                        portals,
+                        &grapplepos);
 
                 grappleSpeed += grappleAcc;
             }

@@ -5,6 +5,14 @@
 #include <cmath>
 #include "portal.hpp"
 
+#define DEBUG  0
+
+#if DEBUG
+#include <iostream>
+#endif
+
+sf::Vector2f rotateVector(const sf::Vector2f& vector, float angle);
+
 void Portal::draw(sf::RenderWindow& app)
 {
     /* sf::Vector2f offset = sf::Vector2f(size * 0.5 * std::cos(angle), size * 0.5f * std::sin(angle)); */
@@ -28,7 +36,19 @@ Portal::Portal(sf::Vector2f _position, sf::Color _color, float _angle, float _si
     c = position.y - a * position.x;
 }
 
-void Portal::pair(Portal _otherSide)
+void Portal::pair(Portal *_otherSide)
 {
-    otherSide = &_otherSide;
+    otherSide = _otherSide;
+#if DEBUG
+    std::cout << "Portal at (" << position.x <<  ", " << position.y << 
+        ") is paired with poratal at (" << _otherSide->position.x << ", " << _otherSide->position.y << ")" << std::endl;
+#endif
+}
+
+sf::Vector2f Portal::transform(sf::Vector2f initPos)
+{
+    sf::Vector2f displacement = initPos - position;
+    sf::Vector2f rotatedDisplacement = rotateVector(displacement, angle * -1);
+
+    return rotateVector(rotatedDisplacement, otherSide->angle) + otherSide->position;
 }
