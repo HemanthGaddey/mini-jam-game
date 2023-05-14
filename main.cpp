@@ -4,7 +4,7 @@
 #include <time.h>
 #include <string>
 #include <sstream>
-#include "Mainmenu.hpp"
+#include "MainMenu.hpp"
 #include "portal.hpp"  //for my IDE portal.hpp dosent worl so i had toreplace it with .h, i've changed all of them for you're convinence.
 using namespace sf;
 
