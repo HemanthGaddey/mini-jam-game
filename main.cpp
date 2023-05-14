@@ -1,5 +1,5 @@
 #include <SFML/Graphics.hpp>
-#include <SFML/System/Vector2.hpp>
+#include <SFML/Graphics/Text.hpp>
 #include <iostream>
 #include <cmath>
 #include <time.h>
@@ -177,6 +177,15 @@ int main()
     // Level counter will start from 0, Add one to it while displaying to players
     int currentLevel = 0;
 
+    // Adding HUD
+    sf::Text levelText;
+	levelText.setFont(font);
+	levelText.setFillColor(sf::Color::Blue);
+	levelText.setString("Level: " + std::to_string(currentLevel + 1));
+    levelText.setCharacterSize(30);
+    levelText.setStyle(sf::Text::Bold);
+	levelText.setPosition(sf::Vector2f(15, 15));
+
     while(app.isOpen()){
         mouse = Mouse::getPosition(app);
         actualMousePos = camPos - (camCoverage * 0.5f);
@@ -206,12 +215,12 @@ int main()
 					break;
 
 				case sf::Keyboard::Space:
+				case sf::Keyboard::Return:
                     if(gameState == STATE_MAIN_MENU)
                     {
                         switch (menu.GetPressedItem())
                         {
                         case 0:
-                            std::cout<<"play!!"<<"\n";
                             gameState = STATE_PLAYING;
                             break;
                         case 1:
@@ -233,8 +242,8 @@ int main()
                         grapplepos.y = actualMousePos.y;
                         initplayerpos = playerpos;
                         grappleAngle = atan((actualMousePos.y-playerpos.y)/(actualMousePos.x-playerpos.x));
-                        grappleSpeed = 12;
-                        grappleAcc = 5;
+                        grappleSpeed = 8;
+                        grappleAcc = 2;
                         (actualMousePos.x > playerpos.x) ? g=1:g=-1;
                         magnitude = 1;
                         shakeStart = clock.getElapsedTime();
@@ -345,21 +354,24 @@ int main()
         }
         else
         {
-        app.clear();
-        //Start Drawing here
-        app.draw(sBackground);
-        if(grapple)app.draw(line, 5, Lines);
-        app.draw(player);
-        app.draw(hook);
-        //debug(&app,grapplepos,initplayerpos);
+            app.clear();
 
-        // Drawing Portals
-        for(auto it : levels[currentLevel].portals)
-            it.draw(app);
-        // Drawing enemies
+            //Start Drawing here
+            app.draw(sBackground);
+            if(grapple)app.draw(line, 5, Lines);
+            app.draw(player);
+            app.draw(hook);
+            //debug(&app,grapplepos,initplayerpos);
+
+            // Drawing Portals
+            for(auto it : levels[currentLevel].portals)
+                it.draw(app);
+            // Drawing enemies
             enemy.draw();
-        //Stop Drawing here
-        app.display();
+            // Finally draw hud elements at the top
+            app.draw(levelText);
+            //Stop Drawing here
+            app.display();
         }
     }
     return 0;
