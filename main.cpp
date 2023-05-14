@@ -12,6 +12,11 @@ Font font;
 
 struct point{int x,y;};
 
+typedef enum {
+    STATE_MAIN_MENU,
+    STATE_PLAYING
+}GameState;
+
 float dist(Vector2f a,Vector2f b){
     return sqrt(pow((a.x-b.x),2)+pow((a.y-b.y),2));
 }
@@ -155,7 +160,7 @@ int main()
 
 
     MainMenu menu(app.getSize().x,app.getSize().y); //Main Menu features
-    bool flag = false; //shows up menu when false and the game when set to true.
+    GameState gameState = STATE_MAIN_MENU;
 
     while(app.isOpen()){
         mouse = Mouse::getPosition(app);
@@ -184,7 +189,7 @@ int main()
 					{
 					case 0:
 					    std::cout<<"play!!"<<"\n";
-					    flag = true; //starts the game
+					    gameState = STATE_PLAYING;
 					    break;
                     case 1:
                         std::cout<<"Option"<<"\n";
@@ -196,7 +201,7 @@ int main()
                     break;
 				}
 				case Event::MouseButtonReleased:
-                if(e.mouseButton.button == Mouse::Left || flag==true){
+                if(e.mouseButton.button == Mouse::Left && gameState==STATE_PLAYING){
                     if(dist(Vector2f(mouse.x,mouse.y),playerpos) > player.getRadius()){
                         grapple = true;
                         grapplepos.x = mouse.x; grapplepos.y = mouse.y;
@@ -270,7 +275,7 @@ int main()
         app.setView(cam);
 
 
-        if(flag==false) //displays  menu
+        if(gameState == STATE_MAIN_MENU) //displays  menu
         {
             app.clear();
             menu.draw(app);
