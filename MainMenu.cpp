@@ -4,7 +4,7 @@
 
 MainMenu::MainMenu(float width, float height)
 {
-	if (!font.loadFromFile("OpenSans-light.ttf"))
+	if (!font.loadFromFile("OpenSans-Light.ttf"))
 	{
 		// handle error
 	}
