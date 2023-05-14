@@ -4,8 +4,8 @@
 #include <time.h>
 #include <string>
 #include <sstream>
-
-#include "portal.hpp"
+#include "Mainmenu.hpp"
+#include "portal.hpp"  //for my IDE portal.hpp dosent worl so i had toreplace it with .h, i've changed all of them for you're convinence.
 using namespace sf;
 
 Font font;
@@ -152,16 +152,51 @@ int main()
     portals[2].pair(&portals[1]);
     portals[3].pair(&portals[0]);
 
+
+
+    MainMenu menu(app.getSize().x,app.getSize().y); //Main Menu features
+    bool flag = false; //shows up menu when false and the game when set to true.
+
     while(app.isOpen()){
-        // Event handling
         mouse = Mouse::getPosition(app);
         Event e;
-        while(app.pollEvent(e)){
-            if(e.type == Event::Closed){
+
+        while(app.pollEvent(e))
+            {
+            switch(e.type)
+            {
+            case sf::Event::KeyReleased:
+            switch (e.key.code)
+				{
+                case sf::Event::Closed:
                 app.close();
-            }
-            else if(e.type == Event::MouseButtonReleased){
-                if(e.mouseButton.button == Mouse::Left){
+
+				case sf::Keyboard::W:
+					menu.MoveUp();
+					break;
+
+				case sf::Keyboard::S:
+					menu.MoveDown();
+					break;
+
+				case sf::Keyboard::Space:
+					switch (menu.GetPressedItem())
+					{
+					case 0:
+					    std::cout<<"play!!"<<"\n";
+					    flag = true; //starts the game
+					    break;
+                    case 1:
+                        std::cout<<"Option"<<"\n";
+                        break;
+                    case 2:
+                        app.close();
+                        break;
+					}
+                    break;
+				}
+				case Event::MouseButtonReleased:
+                if(e.mouseButton.button == Mouse::Left || flag==true){
                     if(dist(Vector2f(mouse.x,mouse.y),playerpos) > player.getRadius()){
                         grapple = true;
                         grapplepos.x = mouse.x; grapplepos.y = mouse.y;
@@ -174,8 +209,12 @@ int main()
                         shakeStart = clock.getElapsedTime();
                     }
                 }
+
+            break;
             }
         }
+
+
         if(Keyboard::isKeyPressed(Keyboard::Space)){
             //CAM SHAKE
             magnitude = 10;
@@ -229,8 +268,17 @@ int main()
             sf::Vertex(sf::Vector2f(hookpos.x, hookpos.y))
         };
         app.setView(cam);
-        app.clear();
 
+
+        if(flag==false) //displays  menu
+        {
+            app.clear();
+            menu.draw(app);
+            app.display();
+        }
+        else
+        {
+        app.clear();
         //Start Drawing here
         app.draw(sBackground);
         if(grapple)app.draw(line, 5, Lines);
@@ -244,6 +292,7 @@ int main()
 
         //Stop Drawing here
         app.display();
+        }
     }
     return 0;
 }
