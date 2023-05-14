@@ -3,6 +3,7 @@
 #include <cmath>
 #include <vector>
 #include <iostream>
+#include "wire.hpp"
 
 using namespace sf;
 
@@ -11,7 +12,7 @@ class Minion
     private:
         float s = 5;
 
-        Vector2f initPos, finalPos, u;
+        Vector2f initPos, finalPos, u, connectionPoint;
         float d = 0.f;
         int dir = 1;
 
@@ -20,7 +21,7 @@ class Minion
         }
 
     public:
-        Minion(RenderWindow* app, std::vector<Vector2f> travellingPoints);
+        Minion(RenderWindow* app, std::vector<Vector2f> travellingPoints, Vector2f connectionPoint = Vector2f(0.0, 0.0));
         ~Minion();
 
         CircleShape character;
@@ -28,8 +29,10 @@ class Minion
         RenderWindow* app;
 
         Vector2f position;
+        Wire connectingWire;
         std::vector<Vector2f> travellingPoints;
         int currentDestination = 1;
+        void move(sf::Vector2f newPosition);
 
         void draw();
 };

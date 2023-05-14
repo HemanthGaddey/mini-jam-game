@@ -7,6 +7,7 @@
 #include <sstream>
 #include "MainMenu.hpp"
 #include "portal.hpp"  //for my IDE portal.hpp dosent worl so i had toreplace it with .h, i've changed all of them for you're convinence.
+#include "wire.hpp"
 #include "Minion.hpp"
 #include "map.hpp"
 
@@ -46,6 +47,7 @@ sf::Vector2f rotateVector(const sf::Vector2f& vector, float angle)
 sf::Vector2f movePlayer(const sf::Vector2f& initPos,
         const sf::Vector2f& movement,
         const std::vector<Portal>& portals,
+        std::vector<Minion>& minions,
         sf::Vector2f *grapplePos = NULL)
 {
     sf::Vector2f finalPos = initPos + movement;
@@ -54,6 +56,31 @@ sf::Vector2f movePlayer(const sf::Vector2f& initPos,
     b1 = -1;
     c1 = initPos.y - (a1 * initPos.x);
     float angle = std::atan(a1);
+    for (int i = 0; i < minions.size(); i++)
+    {
+        // Check if player path intersects with portal
+
+        // Reject if lines are parallel and broken wires
+        if(minions[i].connectingWire.broken || (angle <= minions[i].connectingWire.angle + 0.05 && angle >= minions[i].connectingWire.angle - 0.05))
+            continue;
+
+        // Get point of intersection
+        sf::Vector2f pointIntersection(((b1 * minions[i].connectingWire.c - c1 * minions[i].connectingWire.b) / (a1 * minions[i].connectingWire.b - b1 * minions[i].connectingWire.a)),
+                ((c1 * minions[i].connectingWire.a - a1 * minions[i].connectingWire.c) / (a1 * minions[i].connectingWire.b - b1 * minions[i].connectingWire.a)));
+
+        // Check if point of intersection lies on the line segments
+        if(  (initPos.x < pointIntersection.x && finalPos.x < pointIntersection.x)
+           ||(initPos.x > pointIntersection.x && finalPos.x > pointIntersection.x)
+           ||(initPos.y < pointIntersection.y && finalPos.y < pointIntersection.y)
+           ||(initPos.y > pointIntersection.y && finalPos.y > pointIntersection.y)
+        )
+            continue;
+        if (dist(minions[i].connectingWire.position, pointIntersection) > minions[i].connectingWire.size * 0.5)
+            continue;
+
+        // If it does, break the wire
+        minions[i].connectingWire.breakWire();
+    }
     for (auto it : portals)
     {
         // Check if player path intersects with portal
@@ -126,10 +153,7 @@ int main()
     CircleShape player(25);
     player.setPointCount(300);
     player.setFillColor(Color::Cyan);
-    
-    std::vector<Vector2f> points{Vector2f(400,400),Vector2f(600,600),Vector2f(600,200),Vector2f(30,400)};
-    Minion enemy(&app, points);
-	
+
     int t=1;
     Vector2f hookpos(300+50+10,300);
     CircleShape hook(10);
@@ -170,6 +194,17 @@ int main()
     levels[0].portals[2].pair(&levels[0].portals[1]);
     levels[0].portals[3].pair(&levels[0].portals[0]);
 
+    std::vector<Minion> minions;
+
+    std::vector<Vector2f> minionPoints1{Vector2f(100, 300), Vector2f(300, 100), Vector2f(100, 100)};
+    std::vector<Vector2f> minionPoints2{Vector2f(600, 300), Vector2f(300, 100), Vector2f(600, 100)};
+    std::vector<Vector2f> minionPoints3{Vector2f(100, 300), Vector2f(300, 600), Vector2f(100, 600)};
+    std::vector<Vector2f> minionPoints4{Vector2f(600, 300), Vector2f(300, 600), Vector2f(600, 600)};
+    levels[0].minions.push_back(Minion(&app, minionPoints1, sf::Vector2f(0, 0)));
+    levels[0].minions.push_back(Minion(&app, minionPoints2, sf::Vector2f(700, 0)));
+    levels[0].minions.push_back(Minion(&app, minionPoints3, sf::Vector2f(0, 700)));
+    levels[0].minions.push_back(Minion(&app, minionPoints4, sf::Vector2f(700, 700)));
+
 
 
     MainMenu menu(app.getSize().x,app.getSize().y); //Main Menu features
@@ -179,12 +214,12 @@ int main()
 
     // Adding HUD
     sf::Text levelText;
-	levelText.setFont(font);
-	levelText.setFillColor(sf::Color::Blue);
-	levelText.setString("Level: " + std::to_string(currentLevel + 1));
+    levelText.setFont(font);
+    levelText.setFillColor(sf::Color::Blue);
+    levelText.setString("Level: " + std::to_string(currentLevel + 1));
     levelText.setCharacterSize(30);
     levelText.setStyle(sf::Text::Bold);
-	levelText.setPosition(sf::Vector2f(15, 15));
+    levelText.setPosition(sf::Vector2f(15, 15));
 
     while(app.isOpen()){
         mouse = Mouse::getPosition(app);
@@ -203,19 +238,19 @@ int main()
                 break;
             case sf::Event::KeyReleased:
                 switch (e.key.code)
-				{
-				case sf::Keyboard::W:
+                {
+                case sf::Keyboard::W:
                     if(gameState == STATE_MAIN_MENU)
                         menu.MoveUp();
-					break;
+                    break;
 
-				case sf::Keyboard::S:
+                case sf::Keyboard::S:
                     if(gameState == STATE_MAIN_MENU)
                         menu.MoveDown();
-					break;
+                    break;
 
-				case sf::Keyboard::Space:
-				case sf::Keyboard::Return:
+                case sf::Keyboard::Space:
+                case sf::Keyboard::Return:
                     if(gameState == STATE_MAIN_MENU)
                     {
                         switch (menu.GetPressedItem())
@@ -232,7 +267,7 @@ int main()
                         }
                     }
                     break;
-				}
+                }
                 break;
             case Event::MouseButtonReleased:
                 if(e.mouseButton.button == Mouse::Left && gameState==STATE_PLAYING){
@@ -331,6 +366,7 @@ int main()
                 playerpos = movePlayer(playerpos,
                         playerMovement,
                         levels[currentLevel].portals,
+                        levels[currentLevel].minions,
                         &grapplepos);
 
                 grappleSpeed += grappleAcc;
@@ -367,7 +403,8 @@ int main()
             for(auto it : levels[currentLevel].portals)
                 it.draw(app);
             // Drawing enemies
-            enemy.draw();
+            for(int i = 0; i < levels[currentLevel].minions.size(); i++)
+                levels[currentLevel].minions[i].draw();
             // Finally draw hud elements at the top
             app.draw(levelText);
             //Stop Drawing here
