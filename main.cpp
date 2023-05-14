@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <iostream>
 #include <cmath>
 #include <time.h>
@@ -7,10 +8,13 @@
 #include "MainMenu.hpp"
 #include "portal.hpp"  //for my IDE portal.hpp dosent worl so i had toreplace it with .h, i've changed all of them for you're convinence.
 #include "Minion.hpp"
+#include "map.hpp"
 
 using namespace sf;
 
 Font font;
+const int MAX_VIEW_SIZE = 800;
+const int MIN_VIEW_SIZE = 200;
 
 struct point{int x,y;};
 
@@ -116,6 +120,7 @@ int main()
     if(!font.loadFromFile("OpenSans-Light.ttf"))
         std::cerr<<"Failed to load Fonts!"<<std::endl;
     Vector2i mouse;
+    Vector2f actualMousePos;
 
     Vector2f playerpos(300,300);
     CircleShape player(25);
@@ -152,85 +157,135 @@ int main()
     Portal::sPortal.setOrigin(sf::Vector2f(1850, 475));
     Portal::sPortal.setScale(sf::Vector2f(0.027, 0.027));
 
-    std::vector<Portal> portals;
-    portals.push_back(Portal(sf::Vector2f(250, 100), sf::Color::Red,   0, 300.0f));
-    portals.push_back(Portal(sf::Vector2f(100, 350), sf::Color::Red, -90, 300.0f));
-    portals.push_back(Portal(sf::Vector2f(350, 500), sf::Color::Red, 180, 300.0f));
-    portals.push_back(Portal(sf::Vector2f(500, 250), sf::Color::Red,  90, 300.0f));
-    portals[0].pair(&portals[3]);
-    portals[1].pair(&portals[2]);
-    portals[2].pair(&portals[1]);
-    portals[3].pair(&portals[0]);
+    // Creating Levels
+    std::vector<Map> levels;
+    levels.push_back(Map(sf::Vector2f(1000, 1000)));
+
+    levels[0].portals.push_back(Portal(sf::Vector2f(250, 100), sf::Color::Red,   0, 300.0f));
+    levels[0].portals.push_back(Portal(sf::Vector2f(100, 350), sf::Color::Red, -90, 300.0f));
+    levels[0].portals.push_back(Portal(sf::Vector2f(350, 500), sf::Color::Red, 180, 300.0f));
+    levels[0].portals.push_back(Portal(sf::Vector2f(500, 250), sf::Color::Red,  90, 300.0f));
+    levels[0].portals[0].pair(&levels[0].portals[3]);
+    levels[0].portals[1].pair(&levels[0].portals[2]);
+    levels[0].portals[2].pair(&levels[0].portals[1]);
+    levels[0].portals[3].pair(&levels[0].portals[0]);
 
 
 
     MainMenu menu(app.getSize().x,app.getSize().y); //Main Menu features
     GameState gameState = STATE_MAIN_MENU;
+    // Level counter will start from 0, Add one to it while displaying to players
+    int currentLevel = 0;
 
     while(app.isOpen()){
         mouse = Mouse::getPosition(app);
+        actualMousePos = camPos - (camCoverage * 0.5f);
+        actualMousePos.x += mouse.x * camCoverage.x / app.getSize().x;
+        actualMousePos.y += mouse.y * camCoverage.y / app.getSize().y;
+
         Event e;
 
         while(app.pollEvent(e))
-            {
+        {
             switch(e.type)
             {
-            case sf::Event::KeyReleased:
-            switch (e.key.code)
-				{
-                case sf::Event::Closed:
+            case sf::Event::Closed:
                 app.close();
-
+                break;
+            case sf::Event::KeyReleased:
+                switch (e.key.code)
+				{
 				case sf::Keyboard::W:
-					menu.MoveUp();
+                    if(gameState == STATE_MAIN_MENU)
+                        menu.MoveUp();
 					break;
 
 				case sf::Keyboard::S:
-					menu.MoveDown();
+                    if(gameState == STATE_MAIN_MENU)
+                        menu.MoveDown();
 					break;
 
 				case sf::Keyboard::Space:
-					switch (menu.GetPressedItem())
-					{
-					case 0:
-					    std::cout<<"play!!"<<"\n";
-					    gameState = STATE_PLAYING;
-					    break;
-                    case 1:
-                        std::cout<<"Option"<<"\n";
-                        break;
-                    case 2:
-                        app.close();
-                        break;
-					}
+                    if(gameState == STATE_MAIN_MENU)
+                    {
+                        switch (menu.GetPressedItem())
+                        {
+                        case 0:
+                            std::cout<<"play!!"<<"\n";
+                            gameState = STATE_PLAYING;
+                            break;
+                        case 1:
+                            std::cout<<"Option"<<"\n";
+                            break;
+                        case 2:
+                            app.close();
+                            break;
+                        }
+                    }
                     break;
 				}
-				case Event::MouseButtonReleased:
+                break;
+            case Event::MouseButtonReleased:
                 if(e.mouseButton.button == Mouse::Left && gameState==STATE_PLAYING){
-                    if(dist(Vector2f(mouse.x,mouse.y),playerpos) > player.getRadius()){
+                    if(dist(Vector2f(actualMousePos.x,actualMousePos.y),playerpos) > player.getRadius()){
                         grapple = true;
-                        grapplepos.x = mouse.x; grapplepos.y = mouse.y;
+                        grapplepos.x = actualMousePos.x;
+                        grapplepos.y = actualMousePos.y;
                         initplayerpos = playerpos;
-                        grappleAngle = atan((mouse.y-playerpos.y)/(mouse.x-playerpos.x));
+                        grappleAngle = atan((actualMousePos.y-playerpos.y)/(actualMousePos.x-playerpos.x));
                         grappleSpeed = 12;
                         grappleAcc = 5;
-                        (mouse.x > playerpos.x)? g=1:g=-1;
+                        (actualMousePos.x > playerpos.x) ? g=1:g=-1;
                         magnitude = 1;
                         shakeStart = clock.getElapsedTime();
                     }
                 }
-
-            break;
+                break;
+            case Event::MouseWheelScrolled:
+                camCoverage += sf::Vector2f(-50, -50)*e.mouseWheelScroll.delta;
+                break;
             }
         }
 
+        if(gameState == STATE_PLAYING){
+            if(Keyboard::isKeyPressed(Keyboard::W)){
+                camPos.y -= 20;
+            }
+            if(Keyboard::isKeyPressed(Keyboard::A)){
+                camPos.x -= 20;
+            }
+            if(Keyboard::isKeyPressed(Keyboard::S)){
+                camPos.y += 20;
+            }
+            if(Keyboard::isKeyPressed(Keyboard::D)){
+                camPos.x += 20;
+            }
 
-        if(Keyboard::isKeyPressed(Keyboard::Space)){
-            //CAM SHAKE
-            magnitude = 10;
-            shakeStart = clock.getElapsedTime();
+            if(camCoverage.x < MIN_VIEW_SIZE)
+                camCoverage.x = MIN_VIEW_SIZE;
+            if(camCoverage.x > MAX_VIEW_SIZE)
+                camCoverage.x = MAX_VIEW_SIZE;
+            if(camCoverage.y < MIN_VIEW_SIZE)
+                camCoverage.y = MIN_VIEW_SIZE;
+            if(camCoverage.y > MAX_VIEW_SIZE)
+                camCoverage.y = MAX_VIEW_SIZE;
+
+            if(camPos.x < camCoverage.x * 0.5f)
+                camPos.x = camCoverage.x * 0.5f;
+            if(camPos.x > levels[currentLevel].size.x - camCoverage.x * 0.5f)
+                camPos.x = levels[currentLevel].size.x - camCoverage.x * 0.5f;
+            if(camPos.y < camCoverage.y * 0.5f)
+                camPos.y = camCoverage.y * 0.5f;
+            if(camPos.y > levels[currentLevel].size.y - camCoverage.y * 0.5f)
+                camPos.y = levels[currentLevel].size.y - camCoverage.y * 0.5f;
+
+            if(Keyboard::isKeyPressed(Keyboard::Space)){
+                //CAM SHAKE
+                magnitude = 10;
+                shakeStart = clock.getElapsedTime();
+            }
+            if(Keyboard::isKeyPressed(Keyboard::Right));
         }
-        if(Keyboard::isKeyPressed(Keyboard::Right));
         if(Keyboard::isKeyPressed(Keyboard::Q))app.close();
 
 
@@ -241,9 +296,11 @@ int main()
         else
             cam.setCenter(camPos);
 
+        cam.setCenter(camPos);
+        cam.setSize(camCoverage);
         // Deciding position of grapple
-        float angle = (atan((mouse.y-playerpos.y)/(mouse.x-playerpos.x)));
-        (mouse.x > playerpos.x)? t=1:t=-1;
+        float angle = (atan((actualMousePos.y-playerpos.y)/(actualMousePos.y-playerpos.y)));
+        (actualMousePos.x > playerpos.x)? t=1:t=-1;
         hookpos.x = playerpos.x+t*(player.getRadius()+hook.getRadius()+1)*cos(angle);
         hookpos.y = playerpos.y+t*(player.getRadius()+hook.getRadius()+1)*sin(angle);
 
@@ -264,7 +321,7 @@ int main()
                 sf::Vector2f playerMovement(g*grappleSpeed*cos(grappleAngle), g*grappleSpeed*sin(grappleAngle));
                 playerpos = movePlayer(playerpos,
                         playerMovement,
-                        portals,
+                        levels[currentLevel].portals,
                         &grapplepos);
 
                 grappleSpeed += grappleAcc;
@@ -297,7 +354,7 @@ int main()
         //debug(&app,grapplepos,initplayerpos);
 
         // Drawing Portals
-        for(auto it : portals)
+        for(auto it : levels[currentLevel].portals)
             it.draw(app);
         // Drawing enemies
             enemy.draw();
