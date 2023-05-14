@@ -6,6 +6,8 @@
 #include <sstream>
 #include "MainMenu.hpp"
 #include "portal.hpp"  //for my IDE portal.hpp dosent worl so i had toreplace it with .h, i've changed all of them for you're convinence.
+#include "Minion.hpp"
+
 using namespace sf;
 
 Font font;
@@ -119,7 +121,10 @@ int main()
     CircleShape player(25);
     player.setPointCount(300);
     player.setFillColor(Color::Cyan);
-
+    
+    std::vector<Vector2f> points{Vector2f(400,400),Vector2f(600,600),Vector2f(600,200),Vector2f(30,400)};
+    Minion enemy(&app, points);
+	
     int t=1;
     Vector2f hookpos(300+50+10,300);
     CircleShape hook(10);
@@ -294,7 +299,8 @@ int main()
         // Drawing Portals
         for(auto it : portals)
             it.draw(app);
-
+        // Drawing enemies
+            enemy.draw();
         //Stop Drawing here
         app.display();
         }
