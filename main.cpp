@@ -72,7 +72,7 @@ bool circleRectCollision(float cx, float cy, float radius, float rx, float ry, f
   return false;
 }
 
-sf::Vector2f rotateVector(const sf::Vector2f& vector, float angle)
+sf::Vector2f rotateVector(sf::Vector2f& vector, float angle)
 {
     // This function will rotate input vector by angle in clockwise direction
     float theta = angle * (3.14159f / 180.0f); // Convert degrees to radians
@@ -84,10 +84,9 @@ sf::Vector2f rotateVector(const sf::Vector2f& vector, float angle)
 }
 
 sf::Vector2f movePlayer(Clock* clocku_,
-        const sf::Vector2f& initPos,
-        const sf::Vector2f& movement,
-        const std::vector<Portal>& portals,
-        std::vector<Minion>& minions,
+        sf::Vector2f& initPos,
+        sf::Vector2f& movement,
+        Map& level,
         sf::Vector2f *grapplePos = NULL)
 {
     sf::Vector2f finalPos = initPos + movement;
@@ -96,17 +95,19 @@ sf::Vector2f movePlayer(Clock* clocku_,
     b1 = -1;
     c1 = initPos.y - (a1 * initPos.x);
     float angle = std::atan(a1);
-    for (int i = 0; i < minions.size(); i++)
+    std::cerr<<current_level<<" "<<level.minions.size()<<" "<<level.portals.size()<<std::endl;
+    if(level.minions.size()>0)
+    for (int i = 0; i < level.minions.size(); i++)
     {
         // Check if player path intersects with portal
 
         // Reject if lines are parallel and broken wires
-        if(minions[i].connectingWire.broken || (angle <= minions[i].connectingWire.angle + 0.05 && angle >= minions[i].connectingWire.angle - 0.05))
+        if(level.minions[i].connectingWire.broken || (angle <= level.minions[i].connectingWire.angle + 0.05 && angle >= level.minions[i].connectingWire.angle - 0.05))
             continue;
 
         // Get point of intersection
-        sf::Vector2f pointIntersection(((b1 * minions[i].connectingWire.c - c1 * minions[i].connectingWire.b) / (a1 * minions[i].connectingWire.b - b1 * minions[i].connectingWire.a)),
-                ((c1 * minions[i].connectingWire.a - a1 * minions[i].connectingWire.c) / (a1 * minions[i].connectingWire.b - b1 * minions[i].connectingWire.a)));
+        sf::Vector2f pointIntersection(((b1 * level.minions[i].connectingWire.c - c1 * level.minions[i].connectingWire.b) / (a1 * level.minions[i].connectingWire.b - b1 * level.minions[i].connectingWire.a)),
+                ((c1 * level.minions[i].connectingWire.a - a1 * level.minions[i].connectingWire.c) / (a1 * level.minions[i].connectingWire.b - b1 * level.minions[i].connectingWire.a)));
 
         // Check if point of intersection lies on the line segments
         if(  (initPos.x < pointIntersection.x && finalPos.x < pointIntersection.x)
@@ -115,16 +116,17 @@ sf::Vector2f movePlayer(Clock* clocku_,
            ||(initPos.y > pointIntersection.y && finalPos.y > pointIntersection.y)
         )
             continue;
-        if (dist(minions[i].connectingWire.position, pointIntersection) > minions[i].connectingWire.size * 0.5)
+        if (dist(level.minions[i].connectingWire.position, pointIntersection) > level.minions[i].connectingWire.size * 0.5)
             continue;
 
         // If it does, break the wire
         score++;
-        minions[i].connectingWire.breakWire();
-        minions[i].alive = false;
-        minions[i].deathTime = clocku_->getElapsedTime();
+        level.minions[i].connectingWire.breakWire();
+        level.minions[i].alive = false;
+        level.minions[i].deathTime = clocku_->getElapsedTime();
     }
-    for (auto it : portals)
+    if(level.portals.size()>0)
+    for (auto it : level.portals)
     {
         // Check if player path intersects with portal
 
@@ -245,6 +247,9 @@ int main()
     sBackground.setTexture(tBackground);
     //sBackground.setOrigin(tBackground.getSize().x/2,tBackground.getSize().y/2);
 
+    Texture tspike;
+    tspike.loadFromFile("spikes.png");
+    Sprite spike(tspike,IntRect(60,50,410,240));
     // Portal sprite needs to be asymmetric for player to get idea of direction
     Portal::tPortal.loadFromFile("portal.png");
     Portal::sPortal.setTexture(Portal::tPortal);
@@ -286,14 +291,12 @@ int main()
     //Adding Main Menu features
     MainMenu menu(app.getSize().x,app.getSize().y); 
     GameState gameState = STATE_MAIN_MENU;
-    // Level counter will start from 0, Add one to it while displaying to players
-    int currentLevel = 0;
 
     // Adding HUD
     sf::Text levelText;
     levelText.setFont(font);
     levelText.setFillColor(sf::Color::Blue);
-    levelText.setString("Level: " + std::to_string(currentLevel + 1));
+    levelText.setString("Level: " + std::to_string(current_level + 1));
     levelText.setCharacterSize(30);
     levelText.setStyle(sf::Text::Bold);
     levelText.setPosition(sf::Vector2f(15, 15));
@@ -414,12 +417,12 @@ int main()
 
             if(camPos.x < camCoverage.x * 0.5f)
                 camPos.x = camCoverage.x * 0.5f;
-            if(camPos.x > levels[currentLevel].size.x - camCoverage.x * 0.5f)
-                camPos.x = levels[currentLevel].size.x - camCoverage.x * 0.5f;
+            if(camPos.x > levels[current_level].size.x - camCoverage.x * 0.5f)
+                camPos.x = levels[current_level].size.x - camCoverage.x * 0.5f;
             if(camPos.y < camCoverage.y * 0.5f)
                 camPos.y = camCoverage.y * 0.5f;
-            if(camPos.y > levels[currentLevel].size.y - camCoverage.y * 0.5f)
-                camPos.y = levels[currentLevel].size.y - camCoverage.y * 0.5f;
+            if(camPos.y > levels[current_level].size.y - camCoverage.y * 0.5f)
+                camPos.y = levels[current_level].size.y - camCoverage.y * 0.5f;
 
             if(Keyboard::isKeyPressed(Keyboard::Space)){
                 //CAM SHAKE
@@ -466,8 +469,7 @@ int main()
                 playerpos = movePlayer(&clock,
                         playerpos,
                         playerMovement,
-                        levels[currentLevel].portals,
-                        levels[currentLevel].minions,
+                        levels[current_level],
                         &grapplepos);
 
                 grappleSpeed += grappleAcc;
@@ -511,9 +513,11 @@ int main()
         if(circleRectCollision(playerpos.x,playerpos.y,pradius,finishBox.getPosition().x,finishBox.getPosition().y,finishBox.getSize().x,finishBox.getSize().y)){
             playerpos = Vector2f(300,300);
             player.setPosition(300,300);
-            current_level += 1;
+            if((current_level+1)>=levels.size()){
+                gameState = STATE_WON;
+            }
+            else current_level += 1;
             grapple=false; 
-            continue;
         }
         //Player - Minion:
            for(auto i: levels[current_level].minions){
@@ -527,6 +531,7 @@ int main()
             else if(playerpos.y > (levelRect[current_level].y-pradius))playerpos.y=(levelRect[current_level].y-pradius);
             else if(playerpos.y < pradius)playerpos.y = pradius;
             
+
         if(gameState == STATE_MAIN_MENU) //displays menu
         {
             app.clear();
@@ -589,11 +594,11 @@ int main()
             text.setFont(font);
             text.setCharacterSize(34);
             text.setFillColor(Color::Green);
-            text.setString("Game Won!! 🗿");
-            text.setPosition(300,100);
+            text.setString("Game Won!!");
+            text.setPosition(210,100);
             app.draw(text);
             text.setString("Thank you for your Patience! :D");
-            text.setPosition(100,300);
+            text.setPosition(50,300);
             app.draw(text);
             app.display();
         }
@@ -629,13 +634,13 @@ int main()
 
             // Drawing Portals
             if(levels[current_level].portals.size() > 0)
-            for(auto it : levels[currentLevel].portals)
+            for(auto it : levels[current_level].portals)
                 it.draw(app);
 
             // Drawing enemies
             if(levels[current_level].minions.size() > 0)
-            for(int i = 0; i < levels[currentLevel].minions.size(); i++)
-                levels[currentLevel].minions[i].draw();
+            for(int i = 0; i < levels[current_level].minions.size(); i++)
+                levels[current_level].minions[i].draw();
 
             // Finally draw hud elements at the top
             app.draw(levelText);

@@ -11,7 +11,7 @@
 #include <iostream>
 #endif
 
-sf::Vector2f rotateVector(const sf::Vector2f& vector, float angle);
+sf::Vector2f rotateVector(sf::Vector2f& vector, float angle);
 
 void Portal::draw(sf::RenderWindow& app)
 {
