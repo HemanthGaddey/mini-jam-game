@@ -12,11 +12,13 @@
 #include "wire.hpp"
 #include "Minion.hpp"
 #include "map.hpp"
+#include "spike.hpp"
 #define PI 3.14159265
 
 using namespace sf;
 
 Music mainMenuTrack, gameplayTrack, hitSound, grappleSound;
+int pradius = 40;
 
 Vector2f initOffset(100,100);
 Vector2f levelRect[6] = {Vector2f(600,600),Vector2f(600,600),Vector2f(600,800),Vector2f(800,900),Vector2f(800,1000),Vector2f(800,900)};
@@ -36,6 +38,8 @@ typedef enum {
     STATE_DEAD,
     STATE_WON
 }GameState;
+
+GameState gameState = STATE_MAIN_MENU;
 
 float dist(Vector2f a,Vector2f b){
     return sqrt(pow((a.x-b.x),2)+pow((a.y-b.y),2));
@@ -153,6 +157,12 @@ sf::Vector2f movePlayer(Clock* clocku_,
             *grapplePos = it.transform(*grapplePos);
         return it.transform(finalPos);
     }
+    if(level.spikes.size()>0)
+    for(auto s: level.spikes){
+        if(circleRectCollision(initPos.x,initPos.y,pradius,s.sprite.getPosition().x,s.sprite.getPosition().y,s.sprite.getTexture()->getSize().x,s.sprite.getTexture()->getSize().y)){
+            gameState = STATE_DEAD;
+        }
+    }
     return finalPos;
 }
 
@@ -205,7 +215,6 @@ int main()
     mainMenuTrack.setLoop(true);
     gameplayTrack.setLoop(true);
 
-    int pradius = 40;
     CircleShape playerBoundingBox(pradius);
     playerBoundingBox.setPointCount(300);
     Vector2f playerpos(300,300);
@@ -247,9 +256,6 @@ int main()
     sBackground.setTexture(tBackground);
     //sBackground.setOrigin(tBackground.getSize().x/2,tBackground.getSize().y/2);
 
-    Texture tspike;
-    tspike.loadFromFile("spikes.png");
-    Sprite spike(tspike,IntRect(60,50,410,240));
     // Portal sprite needs to be asymmetric for player to get idea of direction
     Portal::tPortal.loadFromFile("portal.png");
     Portal::sPortal.setTexture(Portal::tPortal);
@@ -285,12 +291,13 @@ int main()
     std::vector<Vector2f> minionPoints5{Vector2f(100, 100), Vector2f(500, 100), Vector2f(500, 500), Vector2f(100, 500)};
     levels[1].minions.push_back(Minion(&clock, &tcharacter, &app, minionPoints5, sf::Vector2f(300, 300)));
 
+    levels[1].spikes.push_back(Spike(&app, 300.f,300.f,0));
     //Level 3
 
 
     //Adding Main Menu features
     MainMenu menu(app.getSize().x,app.getSize().y); 
-    GameState gameState = STATE_MAIN_MENU;
+
 
     // Adding HUD
     sf::Text levelText;
@@ -642,10 +649,14 @@ int main()
             for(int i = 0; i < levels[current_level].minions.size(); i++)
                 levels[current_level].minions[i].draw();
 
+            //Drawing spikes
+            if(levels[current_level].spikes.size()>0)
+            for(auto s: levels[current_level].spikes)
+                s.draw();
+
             // Finally draw hud elements at the top
             app.draw(levelText);
             app.draw(scoreText);
-
             /******///playerBoundingBox.setPosition(playerpos.x-pradius,playerpos.y-pradius);app.draw(playerBoundingBox);
 
             //Stop Drawing here
