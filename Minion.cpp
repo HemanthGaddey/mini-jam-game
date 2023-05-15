@@ -1,13 +1,16 @@
 #include "Minion.hpp"
 
-Minion::Minion(RenderWindow* app, std::vector<Vector2f> travellingPoints, Vector2f connectionPoint)
+Minion::Minion(Clock* clock_, Texture* t, RenderWindow* app, std::vector<Vector2f> travellingPoints, Vector2f connectionPoint)
     :connectingWire(connectionPoint, travellingPoints[0]), connectionPoint(connectionPoint)
 {
     this->app = app;
+    //if(!tcharacter.loadFromFile("img/Extras.png")){std::cerr<<"FAILED to load extras.png!!!\n";}
+    character = Sprite(*t,sf::IntRect(650,10,140,130));
+    character.setOrigin(character.getLocalBounds().width/2.f,character.getLocalBounds().height/2.f);
+    character.setScale(0.5f,0.5f);
 
-    character.setRadius(25);
-    character.setPointCount(300);
-    character.setFillColor(Color::Red);
+    boundingBox.setRadius(radius);
+    boundingBox.setPointCount(300);
 
     this->travellingPoints = travellingPoints;
     this->position =  travellingPoints[0];
@@ -16,8 +19,10 @@ Minion::Minion(RenderWindow* app, std::vector<Vector2f> travellingPoints, Vector
     finalPos = travellingPoints[1];
     
     this->u = ((float)s/dist(initPos,finalPos))*(finalPos-initPos); 
-
+    
     connectingWire.updateWire(position, connectionPoint);
+
+    clocku = clock_;
 }
 
 Minion::~Minion(){
@@ -52,9 +57,26 @@ void Minion::draw()
     /* std::cout<<"("<<position.x<<","<<position.y<<") ("<<currentDestination<<") ("<<dir<<") ("<<initPos.x<<","<<initPos.y<<") ("<<finalPos.x<<","<<finalPos.y<<")"<<std::endl; */
 
     move(position + u);
-    character.setPosition(position.x-character.getRadius(),position.y-character.getRadius());
+
+    character.setPosition(position.x,position.y);
+    boundingBox.setPosition(position.x-radius,position.y-radius);
     connectingWire.draw(*app);
-    (*app).draw(character);
+
+    //Death animation:
+    Time t = clocku->getElapsedTime()-deathTime;
+    if(t < milliseconds(200)){
+        if(t.asMilliseconds()%(50)){
+            character.setTextureRect(sf::IntRect(650,10,140,130));
+        }
+        else{
+            character.setTextureRect(sf::IntRect(809,9,141,130));
+        }
+    }else if(t < milliseconds(500)){
+        character.setTextureRect(sf::IntRect(970,10,140,130));
+    }
+    if(alive && t > milliseconds(500))
+        (*app).draw(character);
+    //(*app).draw(boundingBox);
 }
 void Minion::move(sf::Vector2f newPosition)
 {

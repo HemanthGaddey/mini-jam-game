@@ -1,5 +1,7 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/System.hpp>
 #include <SFML/Graphics/Text.hpp>
+#include <SFML/Audio.hpp>
 #include <iostream>
 #include <cmath>
 #include <time.h>
@@ -10,18 +12,29 @@
 #include "wire.hpp"
 #include "Minion.hpp"
 #include "map.hpp"
+#define PI 3.14159265
 
 using namespace sf;
+
+Music mainMenuTrack, gameplayTrack, hitSound, grappleSound;
+
+Vector2f initOffset(100,100);
+Vector2f levelRect[6] = {Vector2f(600,600),Vector2f(600,600),Vector2f(600,800),Vector2f(800,900),Vector2f(800,1000),Vector2f(800,900)};
+Vector2f spawnPoint[6] = {Vector2f(300,300),Vector2f(600,600),Vector2f(600,800),Vector2f(800,900),Vector2f(800,1000),Vector2f(800,900)};
+int current_level = 0;
 
 Font font;
 const int MAX_VIEW_SIZE = 800;
 const int MIN_VIEW_SIZE = 200;
 
-struct point{int x,y;};
+int score = 0;
 
 typedef enum {
     STATE_MAIN_MENU,
-    STATE_PLAYING
+    STATE_PLAYING,
+    STATE_PAUSE,
+    STATE_DEAD,
+    STATE_WON
 }GameState;
 
 float dist(Vector2f a,Vector2f b){
@@ -32,6 +45,32 @@ float dot(Vector2f a, Vector2f b){
     return a.x*b.x + a.y*b.y;
 }
 
+bool circleRectCollision(float cx, float cy, float radius, float rx, float ry, float rw, float rh) {
+  // temporary variables to set edges for testing
+  float testX = cx;
+  float testY = cy;
+
+  // which edge is closest?
+  if (cx < rx)         
+    testX = rx;     
+  else if (cx > rx+rw) 
+    testX = rx+rw; 
+  if (cy < ry)         
+    testY = ry;     
+  else if (cy > ry+rh) 
+    testY = ry+rh;   
+
+  // get distance from closest edges
+  float distX = cx-testX;
+  float distY = cy-testY;
+  float distance = sqrt( (distX*distX) + (distY*distY) );
+
+  // if the distance is less than the radius, collision:
+  if (distance <= radius) {
+    return true;
+  }
+  return false;
+}
 
 sf::Vector2f rotateVector(const sf::Vector2f& vector, float angle)
 {
@@ -44,7 +83,8 @@ sf::Vector2f rotateVector(const sf::Vector2f& vector, float angle)
     return sf::Vector2f(rotatedX, rotatedY);
 }
 
-sf::Vector2f movePlayer(const sf::Vector2f& initPos,
+sf::Vector2f movePlayer(Clock* clocku_,
+        const sf::Vector2f& initPos,
         const sf::Vector2f& movement,
         const std::vector<Portal>& portals,
         std::vector<Minion>& minions,
@@ -79,7 +119,10 @@ sf::Vector2f movePlayer(const sf::Vector2f& initPos,
             continue;
 
         // If it does, break the wire
+        score++;
         minions[i].connectingWire.breakWire();
+        minions[i].alive = false;
+        minions[i].deathTime = clocku_->getElapsedTime();
     }
     for (auto it : portals)
     {
@@ -149,13 +192,40 @@ int main()
     Vector2i mouse;
     Vector2f actualMousePos;
 
+    if(!mainMenuTrack.openFromFile("img/music1.ogg"));
+        std::cerr<<"Error music1.ogg not loaded!!\n";
+    if(!gameplayTrack.openFromFile("img/music2.ogg"));
+        std::cerr<<"Error music2.ogg not loaded!!\n";
+    if(!grappleSound.openFromFile("img/Hookthrown.ogg"));
+        std::cerr<<"Error Hookthrown.ogg not loaded!!\n";
+    if(!hitSound.openFromFile("img/hitHurt.ogg"));
+        std::cerr<<"Error hitHurt.ogg not loaded!!\n";
+    mainMenuTrack.setLoop(true);
+    gameplayTrack.setLoop(true);
+
+    int pradius = 40;
+    CircleShape playerBoundingBox(pradius);
+    playerBoundingBox.setPointCount(300);
     Vector2f playerpos(300,300);
-    CircleShape player(25);
-    player.setPointCount(300);
-    player.setFillColor(Color::Cyan);
+    Texture tplayer,tcharacter;
+    if(!tcharacter.loadFromFile("img/Extras.png")){std::cerr<<"FAILED to load extras.png!!!\n";}
+    if(!tplayer.loadFromFile("img/player_robot.png"))
+        std::cerr<<"ERROR player_robot.png not loaded!!\n";
+    tplayer.setSmooth(true);
+    Sprite player(tplayer,sf::IntRect(9,30,291,341));
+    player.setScale(0.3f,0.3f);
+    player.setOrigin(player.getLocalBounds().width/2.f,player.getLocalBounds().height/2.f);
+    int PlayerRadius = 50;
+    // CircleShape player(25);
+    // player.setPointCount(300);
+    // player.setFillColor(Color::Cyan);
+
+    RectangleShape finishBox(Vector2f(2*pradius,pradius*2)); //fINISH lINE
+    finishBox.setFillColor(Color::Green);
+    finishBox.setPosition(levelRect[current_level].x-pradius*2,levelRect[current_level].y/2.f-pradius*2);
 
     int t=1;
-    Vector2f hookpos(300+50+10,300);
+    Vector2f hookpos(300+PlayerRadius+10,300);
     CircleShape hook(10);
     hook.setPointCount(7);
     hook.setFillColor(Color::White);
@@ -170,7 +240,7 @@ int main()
     float grappleAcc = 0;
 
     Texture tBackground;
-    tBackground.loadFromFile("background.jpg");
+    tBackground.loadFromFile("img/Space_background.png");
     Sprite sBackground;
     sBackground.setTexture(tBackground);
     //sBackground.setOrigin(tBackground.getSize().x/2,tBackground.getSize().y/2);
@@ -182,6 +252,7 @@ int main()
     Portal::sPortal.setScale(sf::Vector2f(0.027, 0.027));
 
     // Creating Levels
+    //Level 1
     std::vector<Map> levels;
     levels.push_back(Map(sf::Vector2f(1000, 1000)));
 
@@ -194,20 +265,26 @@ int main()
     levels[0].portals[2].pair(&levels[0].portals[1]);
     levels[0].portals[3].pair(&levels[0].portals[0]);
 
-    std::vector<Minion> minions;
-
     std::vector<Vector2f> minionPoints1{Vector2f(100, 300), Vector2f(300, 100), Vector2f(100, 100)};
     std::vector<Vector2f> minionPoints2{Vector2f(600, 300), Vector2f(300, 100), Vector2f(600, 100)};
     std::vector<Vector2f> minionPoints3{Vector2f(100, 300), Vector2f(300, 600), Vector2f(100, 600)};
     std::vector<Vector2f> minionPoints4{Vector2f(600, 300), Vector2f(300, 600), Vector2f(600, 600)};
-    levels[0].minions.push_back(Minion(&app, minionPoints1, sf::Vector2f(0, 0)));
-    levels[0].minions.push_back(Minion(&app, minionPoints2, sf::Vector2f(700, 0)));
-    levels[0].minions.push_back(Minion(&app, minionPoints3, sf::Vector2f(0, 700)));
-    levels[0].minions.push_back(Minion(&app, minionPoints4, sf::Vector2f(700, 700)));
+    levels[0].minions.push_back(Minion(&clock, &tcharacter, &app, minionPoints1, sf::Vector2f(0, 0)));
+    levels[0].minions.push_back(Minion(&clock, &tcharacter, &app, minionPoints2, sf::Vector2f(700, 0)));
+    levels[0].minions.push_back(Minion(&clock, &tcharacter, &app, minionPoints3, sf::Vector2f(0, 700)));
+    levels[0].minions.push_back(Minion(&clock, &tcharacter, &app, minionPoints4, sf::Vector2f(700, 700)));
+
+    //Level 2
+    levels.push_back(Map(sf::Vector2f(1000, 1000)));
+
+    std::vector<Vector2f> minionPoints5{Vector2f(100, 100), Vector2f(500, 100), Vector2f(500, 500), Vector2f(100, 500)};
+    levels[1].minions.push_back(Minion(&clock, &tcharacter, &app, minionPoints5, sf::Vector2f(300, 300)));
+
+    //Level 3
 
 
-
-    MainMenu menu(app.getSize().x,app.getSize().y); //Main Menu features
+    //Adding Main Menu features
+    MainMenu menu(app.getSize().x,app.getSize().y); 
     GameState gameState = STATE_MAIN_MENU;
     // Level counter will start from 0, Add one to it while displaying to players
     int currentLevel = 0;
@@ -220,6 +297,14 @@ int main()
     levelText.setCharacterSize(30);
     levelText.setStyle(sf::Text::Bold);
     levelText.setPosition(sf::Vector2f(15, 15));
+
+    sf::Text scoreText;
+    scoreText.setFont(font);
+    scoreText.setFillColor(sf::Color::Yellow);
+    scoreText.setString("Score: "+std::to_string(score));
+    scoreText.setCharacterSize(30);
+    scoreText.setStyle(sf::Text::Bold);
+    scoreText.setPosition(sf::Vector2f(15, 550));
 
     while(app.isOpen()){
         mouse = Mouse::getPosition(app);
@@ -236,9 +321,17 @@ int main()
             case sf::Event::Closed:
                 app.close();
                 break;
+            case sf::Event::KeyPressed:
+                if(gameState == STATE_DEAD){
+                    gameState = STATE_PLAYING;
+                    playerpos = spawnPoint[current_level];
+                }
+                break;
             case sf::Event::KeyReleased:
                 switch (e.key.code)
                 {
+                if(gameState == STATE_PAUSE)
+                    gameState = STATE_PLAYING;
                 case sf::Keyboard::W:
                     if(gameState == STATE_MAIN_MENU)
                         menu.MoveUp();
@@ -267,12 +360,17 @@ int main()
                         }
                     }
                     break;
+                // case sf::Keyboard::Escape:
+                //     GameState = STATE_PAUSE;
+                //     break;
                 }
                 break;
             case Event::MouseButtonReleased:
                 if(e.mouseButton.button == Mouse::Left && gameState==STATE_PLAYING){
-                    if(dist(Vector2f(actualMousePos.x,actualMousePos.y),playerpos) > player.getRadius()){
+                    if(dist(Vector2f(actualMousePos.x,actualMousePos.y),playerpos) > PlayerRadius){
                         grapple = true;
+                        grappleSound.setPlayingOffset(sf::seconds(0));
+                        grappleSound.play();
                         grapplepos.x = actualMousePos.x;
                         grapplepos.y = actualMousePos.y;
                         initplayerpos = playerpos;
@@ -290,7 +388,6 @@ int main()
                 break;
             }
         }
-
         if(gameState == STATE_PLAYING){
             if(Keyboard::isKeyPressed(Keyboard::W)){
                 camPos.y -= 20;
@@ -309,6 +406,7 @@ int main()
                 camCoverage.x = MIN_VIEW_SIZE;
             if(camCoverage.x > MAX_VIEW_SIZE)
                 camCoverage.x = MAX_VIEW_SIZE;
+
             if(camCoverage.y < MIN_VIEW_SIZE)
                 camCoverage.y = MIN_VIEW_SIZE;
             if(camCoverage.y > MAX_VIEW_SIZE)
@@ -342,11 +440,13 @@ int main()
 
         cam.setCenter(camPos);
         cam.setSize(camCoverage);
+
         // Deciding position of grapple
-        float angle = (atan((actualMousePos.y-playerpos.y)/(actualMousePos.y-playerpos.y)));
+        int t;
+        float angle = (atan((actualMousePos.y-playerpos.y)/(actualMousePos.x-playerpos.x)));
         (actualMousePos.x > playerpos.x)? t=1:t=-1;
-        hookpos.x = playerpos.x+t*(player.getRadius()+hook.getRadius()+1)*cos(angle);
-        hookpos.y = playerpos.y+t*(player.getRadius()+hook.getRadius()+1)*sin(angle);
+        hookpos.x = playerpos.x+t*(PlayerRadius+hook.getRadius()+1)*cos(angle);
+        hookpos.y = playerpos.y+t*(PlayerRadius+hook.getRadius()+1)*sin(angle);
 
         if(grapple){
             Vector2f a(grapplepos.x-playerpos.x,grapplepos.y-playerpos.y);
@@ -363,7 +463,8 @@ int main()
 
                 // This is the only place where player is b
                 sf::Vector2f playerMovement(g*grappleSpeed*cos(grappleAngle), g*grappleSpeed*sin(grappleAngle));
-                playerpos = movePlayer(playerpos,
+                playerpos = movePlayer(&clock,
+                        playerpos,
                         playerMovement,
                         levels[currentLevel].portals,
                         levels[currentLevel].minions,
@@ -373,7 +474,27 @@ int main()
             }
         }
 
-        player.setPosition(playerpos.x-player.getRadius(),playerpos.y-player.getRadius());
+        scoreText.setString("Score: "+std::to_string(score)); //Updating score
+
+        player.setPosition(playerpos.x,playerpos.y);
+        int a = (actualMousePos.x-playerpos.x), b = (actualMousePos.y-playerpos.y);
+        float pangle = 0;
+        if(a>0 && b>0)
+            pangle = angle*180.f/PI;
+        else if(a>0 && b<0)
+            pangle = 360+angle*180.f/PI;
+        else if(a<0 && b<0)
+            pangle = 180+angle*180.f/PI;
+        else 
+            pangle = 180+angle*180.f/PI;    
+        player.setRotation(pangle);
+        if(grapple && (clock.getElapsedTime()-shakeStart <= milliseconds(70))){
+            player.setTextureRect(IntRect(329,20,300,360));
+        }
+        else if(grapple){
+            player.setTextureRect(IntRect(650,9,289,380));
+        }
+        else player.setTextureRect(IntRect(9,30,291,341));
         hook.setPosition(hookpos.x-hook.getRadius(), hookpos.y-hook.getRadius());
         sf::Vertex line[] ={
             sf::Vertex(sf::Vector2f(playerpos.x, playerpos.y)),
@@ -381,32 +502,147 @@ int main()
         };
         app.setView(cam);
 
-
-        if(gameState == STATE_MAIN_MENU) //displays  menu
+        //Player OUTSIDE FLOOR:
+        if(playerpos.x >= (levelRect[current_level].x+pradius) || playerpos.x <= -pradius || playerpos.y >= (levelRect[current_level].x+pradius) || playerpos.y<=-pradius){
+            gameState = STATE_DEAD;
+        }
+        //Detecting Collisions
+        //Player - FinishBox
+        if(circleRectCollision(playerpos.x,playerpos.y,pradius,finishBox.getPosition().x,finishBox.getPosition().y,finishBox.getSize().x,finishBox.getSize().y)){
+            playerpos = Vector2f(300,300);
+            player.setPosition(300,300);
+            current_level += 1;
+            grapple=false; 
+            continue;
+        }
+        //Player - Minion:
+           for(auto i: levels[current_level].minions){
+            if(dist(Vector2f(player.getPosition()),Vector2f(i.character.getPosition())) < pradius+i.radius && gameState!=STATE_DEAD && i.alive==true){
+                //gameState = STATE_DEAD; break;
+            }
+           }
+        //Player - Outer Wall:
+            if(playerpos.x > (levelRect[current_level].x-pradius))playerpos.x=(levelRect[current_level].x-pradius);
+            else if(playerpos.x < pradius)playerpos.x=pradius;
+            else if(playerpos.y > (levelRect[current_level].y-pradius))playerpos.y=(levelRect[current_level].y-pradius);
+            else if(playerpos.y < pradius)playerpos.y = pradius;
+            
+        if(gameState == STATE_MAIN_MENU) //displays menu
         {
             app.clear();
+
+            if(mainMenuTrack.getStatus() != sf::Music::Status::Playing)
+                mainMenuTrack.play();
+            if(gameplayTrack.getStatus() == sf::Music::Status::Playing)
+                mainMenuTrack.pause();
+
             menu.draw(app);
             app.display();
         }
-        else
+        else if(gameState == STATE_PAUSE){  //DIsplays pause menu
+            app.clear(Color::Black);
+
+            if(mainMenuTrack.getStatus() != sf::Music::Status::Playing)
+                mainMenuTrack.play();
+            if(gameplayTrack.getStatus() == sf::Music::Status::Playing)
+                gameplayTrack.pause();
+
+            Text text;
+            text.setFont(font);
+            text.setCharacterSize(34);
+            text.setFillColor(Color::White);
+            text.setString("Paused");
+            text.setPosition(300,100);
+            app.draw(text);
+            text.setString("Press any key to continue.");
+            text.setPosition(50,300);
+            app.draw(text);
+            app.display();
+        }
+        else if (gameState == STATE_DEAD){
+            app.clear(Color::Black);
+
+            mainMenuTrack.pause();
+            gameplayTrack.pause();
+
+            Text text;
+            text.setFont(font);
+            text.setCharacterSize(34);
+            text.setFillColor(Color::Red);
+            text.setString("YOU DIED!");
+            text.setPosition(210,100);
+            app.draw(text);
+            text.setFillColor(Color::White);
+            text.setString("Press any key to continue..");
+            text.setPosition(90,300);
+            app.draw(text);
+            text.setCharacterSize(24);
+            text.setString(std::to_string(clock.getElapsedTime().asSeconds())+"s");
+            text.setPosition(10,500);
+            app.draw(text);
+            app.display();
+            player.setPosition(Vector2f(300,300));
+        }
+        else if(gameState == STATE_WON){
+            app.clear(Color::Black);
+            Text text;
+            text.setFont(font);
+            text.setCharacterSize(34);
+            text.setFillColor(Color::Green);
+            text.setString("Game Won!! 🗿");
+            text.setPosition(300,100);
+            app.draw(text);
+            text.setString("Thank you for your Patience! :D");
+            text.setPosition(100,300);
+            app.draw(text);
+            app.display();
+        }
+        else    //STATE_PLAYING
         {
             app.clear();
 
+            //BGM
+
+            if(mainMenuTrack.getStatus() == sf::Music::Status::Playing)
+                mainMenuTrack.pause();
+            if(gameplayTrack.getStatus() != sf::Music::Status::Playing)
+                gameplayTrack.play();
+
             //Start Drawing here
+
+            //Draw background
             app.draw(sBackground);
+
+            //Draw Floor
+            RectangleShape floor(levelRect[current_level]);
+            floor.setFillColor(Color(200,190,190));
+            floor.setPosition(0,0);
+            floor.setOutlineColor(Color(69,69,69));
+            floor.setOutlineThickness(10);
+            app.draw(floor);
+            app.draw(finishBox);
+
+            //Draw Player
             if(grapple)app.draw(line, 5, Lines);
             app.draw(player);
-            app.draw(hook);
-            //debug(&app,grapplepos,initplayerpos);
+            app.draw(hook); 
 
             // Drawing Portals
+            if(levels[current_level].portals.size() > 0)
             for(auto it : levels[currentLevel].portals)
                 it.draw(app);
+
             // Drawing enemies
+            if(levels[current_level].minions.size() > 0)
             for(int i = 0; i < levels[currentLevel].minions.size(); i++)
                 levels[currentLevel].minions[i].draw();
+
             // Finally draw hud elements at the top
             app.draw(levelText);
+            app.draw(scoreText);
+
+            /******///playerBoundingBox.setPosition(playerpos.x-pradius,playerpos.y-pradius);app.draw(playerBoundingBox);
+
             //Stop Drawing here
             app.display();
         }

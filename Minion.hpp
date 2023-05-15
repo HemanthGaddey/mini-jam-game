@@ -11,7 +11,6 @@ class Minion
 {
     private:
         float s = 5;
-
         Vector2f initPos, finalPos, u, connectionPoint;
         float d = 0.f;
         int dir = 1;
@@ -21,10 +20,16 @@ class Minion
         }
 
     public:
-        Minion(RenderWindow* app, std::vector<Vector2f> travellingPoints, Vector2f connectionPoint = Vector2f(0.0, 0.0));
+        Minion(Clock* clock_, Texture* t,RenderWindow* app, std::vector<Vector2f> travellingPoints, Vector2f connectionPoint = Vector2f(0.0, 0.0));
         ~Minion();
 
-        CircleShape character;
+        bool alive = true;
+        Time deathTime;
+        Clock* clocku;
+
+        int radius = 35;
+        CircleShape boundingBox;
+        Sprite character;
 
         RenderWindow* app;
 
