@@ -254,13 +254,20 @@ int main()
     tBackground.loadFromFile("img/Space_background.png");
     Sprite sBackground;
     sBackground.setTexture(tBackground);
-    //sBackground.setOrigin(tBackground.getSize().x/2,tBackground.getSize().y/2);
+     sBackground.setOrigin(tBackground.getSize().x/2,tBackground.getSize().y/2);
+    Sprite bBackground;
+    
+    
+    bBackground.setTexture(tBackground);
+   
+    
+     bBackground.setScale(Vector2f(0.4687f,0.46875f));
 
     // Portal sprite needs to be asymmetric for player to get idea of direction
     Portal::tPortal.loadFromFile("portal.png");
     Portal::sPortal.setTexture(Portal::tPortal);
     Portal::sPortal.setOrigin(sf::Vector2f(1850, 475));
-    Portal::sPortal.setScale(sf::Vector2f(0.027, 0.027));
+    //Portal::sPortal.setScale(sf::Vector2f(0.027, 0.027));
 
     // Creating Levels
     //Level 1
@@ -547,7 +554,7 @@ int main()
                 mainMenuTrack.play();
             if(gameplayTrack.getStatus() == sf::Music::Status::Playing)
                 mainMenuTrack.pause();
-
+            app.draw(bBackground);
             menu.draw(app);
             app.display();
         }

@@ -10,11 +10,12 @@ MainMenu::MainMenu(float width, float height)
 	}
 
 	// Logo
-	tLogo.loadFromFile("logo.png");
+	tLogo.loadFromFile("img/logo.png");
 	sLogo.setTexture(tLogo);
 	sf::Vector2<unsigned int> logoSize = tLogo.getSize();
 	/* sLogo.setPosition(sf::Vector2f((width - logoSize.x) * 0.5f, 0.05*height)); */
-	sLogo.setPosition(sf::Vector2f(150, 0.05*height));
+	sLogo.setPosition(sf::Vector2f(25, 0.05*height));
+	sLogo.setScale(0.5,0.5);
 
 	// Menu entries
 	menu[0].setFont(font);
