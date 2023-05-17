@@ -5,7 +5,6 @@ using namespace sf;
 class Spike{
     public:
     Spike(RenderWindow*, float, float, int);
-    ~Spike();
 
     void draw();
     Texture texture;
